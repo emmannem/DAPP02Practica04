@@ -3,6 +3,7 @@ import { Empleado } from './models/empleado';
 import { EmpleadoService } from './services/empleado.service';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Table } from 'primeng/table';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -31,13 +32,19 @@ export class AppComponent implements OnInit {
   loadEmpleados(): void {
     this.empleadoService.getEmpleados().subscribe({
       next: (data: Empleado[]) => (this.empleados = data),
-      error: (err) => console.error(err),
+      error: (err) => {
+        console.error(err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Error al cargar empleados',
+        });
+      },
     });
   }
 
   openNew() {
     this.empleado = {
-      id: '',
       nombre: '',
       direccion: '',
       telefono: '',
@@ -59,10 +66,10 @@ export class AppComponent implements OnInit {
       header: 'Confirmar',
       icon: 'pi pi-exclamation-triangle',
       accept: () => {
-        this.empleadoService.deleteEmpleado(empleado.id!).subscribe({
+        this.empleadoService.deleteEmpleado(empleado.clave!).subscribe({
           next: () => {
             this.empleados = this.empleados.filter(
-              (val) => val.id !== empleado.id
+              (val) => val.clave !== empleado.clave
             );
             this.messageService.add({
               severity: 'success',
@@ -71,7 +78,14 @@ export class AppComponent implements OnInit {
               life: 3000,
             });
           },
-          error: (err) => console.error(err),
+          error: (err) => {
+            console.error(err);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Error al eliminar al empleado',
+            });
+          },
         });
       },
     });
@@ -84,22 +98,30 @@ export class AppComponent implements OnInit {
       header: 'Confirmar',
       icon: 'pi pi-exclamation-triangle',
       accept: () => {
-        this.selectedEmpleado.forEach((empleado) => {
-          this.empleadoService.deleteEmpleado(empleado.id!).subscribe({
-            next: () => {
-              this.empleados = this.empleados.filter(
-                (val) => val.id !== empleado.id
-              );
-            },
-            error: (err) => console.error(err),
-          });
-        });
-        this.selectedEmpleado = [];
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Éxito',
-          detail: 'Empleados Eliminados',
-          life: 3000,
+        const deleteRequests = this.selectedEmpleado.map((empleado) =>
+          this.empleadoService.deleteEmpleado(empleado.clave!)
+        );
+        forkJoin(deleteRequests).subscribe({
+          next: () => {
+            this.empleados = this.empleados.filter(
+              (val) => !this.selectedEmpleado.includes(val)
+            );
+            this.selectedEmpleado = [];
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: 'Empleados Eliminados',
+              life: 3000,
+            });
+          },
+          error: (err) => {
+            console.error(err);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Error al eliminar a los empleados',
+            });
+          },
         });
       },
     });
@@ -110,32 +132,29 @@ export class AppComponent implements OnInit {
     this.submitted = false;
   }
 
-  findIndexById(id: string): number {
-    let index = -1;
-    for (let i = 0; i < this.empleados.length; i++) {
-      if (this.empleados[i].id === id) {
-        index = i;
-        break;
-      }
-    }
-
-    return index;
+  findIndexById(clave: number): number {
+    return this.empleados.findIndex((empleado) => empleado.clave === clave);
   }
 
   saveEmpleado() {
     this.submitted = true;
-
+    console.log('Empleado a guardar:', this.empleado);
     if (this.empleado.nombre?.trim()) {
-      if (this.empleado.id) {
-        // Actualizar empleado existente
+      if (this.empleado.clave) {
+        // Actualizar persona existente
         this.empleadoService
-          .updateEmpleado(this.empleado.id, this.empleado)
+          .updateEmpleado(this.empleado.clave, this.empleado)
           .subscribe({
             next: (data) => {
-              const index = this.findIndexById(this.empleado.id!);
+              console.log('Empleado actualizada:', data);
+              const index = this.findIndexById(this.empleado.clave!);
               if (index !== -1) {
                 this.empleados[index] = data;
               }
+              console.log(
+                'Lista de empleados después de actualizar:',
+                this.empleados
+              );
               this.messageService.add({
                 severity: 'success',
                 summary: 'Éxito',
@@ -145,13 +164,22 @@ export class AppComponent implements OnInit {
               this.empleadoDialog = false;
               this.empleado = {} as Empleado;
             },
-            error: (err) => console.error(err),
+            error: (err) => {
+              console.error(err);
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Error al actualizar al empleado',
+              });
+            },
           });
       } else {
-        // Crear nuevo empleado
+        // Crear nueva persona
         this.empleadoService.saveEmpleado(this.empleado).subscribe({
           next: (data) => {
+            console.log('Empleado creado:', data);
             this.empleados.push(data);
+            console.log('Lista de empleados después de crear:', this.empleados);
             this.messageService.add({
               severity: 'success',
               summary: 'Éxito',
@@ -161,7 +189,14 @@ export class AppComponent implements OnInit {
             this.empleadoDialog = false;
             this.empleado = {} as Empleado;
           },
-          error: (err) => console.error(err),
+          error: (err) => {
+            console.error(err);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Error al crear al Empleado',
+            });
+          },
         });
       }
     }

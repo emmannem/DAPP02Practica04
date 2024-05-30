@@ -22,7 +22,7 @@
         label="Eliminar"
         icon="pi pi-trash"
         class="p-button-danger"
-        (click)="deleteSelectedEmpleados()"
+        (click)="(deleteSelectedEmpleados)"
         [disabled]="!selectedEmpleado.length"
       ></button>
     </ng-template>
@@ -36,7 +36,7 @@
     [globalFilterFields]="['nombre', 'direccion', 'telefono']"
     [(selection)]="selectedEmpleado"
     [rowHover]="true"
-    dataKey="id"
+    dataKey="clave"
     currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
     [showCurrentPageReport]="true"
     class="p-datatable-customers"
